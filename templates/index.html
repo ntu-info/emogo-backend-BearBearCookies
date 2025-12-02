@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EmoGo Backend Dashboard</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #007AFF; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .btn { display: inline-block; padding: 6px 12px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;}
+        .emoji { font-size: 1.5em; }
+    </style>
+</head>
+<body>
+    <h1>📱 EmoGo Data Dashboard</h1>
+    <p>Data collected from EmoGo App (React Native)</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Session ID</th>
+                <th>Date (Start Time)</th>
+                <th>Emotion</th>
+                <th>Duration</th>
+                <th>GPS</th>
+                <th>Vlog</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td>{{ session.sessionId }}</td>
+                <td>{{ session.startTime }}</td>
+                <td>
+                    <span class="emoji">
+                        {% if session.emotionValue == 0 %}😢 (Very Bad)
+                        {% elif session.emotionValue == 1 %}😞 (Bad)
+                        {% elif session.emotionValue == 2 %}😐 (Neutral)
+                        {% elif session.emotionValue == 3 %}🙂 (Good)
+                        {% elif session.emotionValue == 4 %}😊 (Very Good)
+                        {% elif session.emotionValue == 5 %}😄 (Excellent)
+                        {% else %}❓ ({{ session.emotionValue }})
+                        {% endif %}
+                    </span>
+                </td>
+                <td>{{ session.duration }}s</td>
+                <td>
+                    {% if session.gps.latitude %}
+                        {{ session.gps.latitude }}, {{ session.gps.longitude }}
+                    {% else %}
+                        No GPS
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ session.videoUrl }}" class="btn" target="_blank">Download/Watch</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

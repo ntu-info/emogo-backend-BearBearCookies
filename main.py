@@ -1,79 +1,95 @@
 import os
-import shutil
 from datetime import datetime
 from typing import Optional
+from bson import ObjectId
 
-from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
+# 必須引入 GridFS 相關套件
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorGridFSBucket
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
-from motor.motor_asyncio import AsyncIOMotorClient
 
 app = FastAPI()
 
-# 1. 建立上傳資料夾
-os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# 2. 設定 HTML 模板
-templates = Jinja2Templates(directory="templates")
-
-# 3. MongoDB 連線
+# 1. MongoDB 連線設定
 MONGO_URI = os.getenv("MONGO_URI") 
 client = AsyncIOMotorClient(MONGO_URI)
 db = client.emogo_db
 collection = db.sessions
 
+# 2. 初始化 GridFS (這是專門用來存檔案的 "桶子")
+fs = AsyncIOMotorGridFSBucket(db)
+
+# 設定 HTML 模板
+templates = Jinja2Templates(directory="templates")
+
 @app.get("/", response_class=HTMLResponse)
 async def read_dashboard(request: Request):
     """
-    給 TA 看的 Dashboard
+    Dashboard: 列出所有資料
     """
-    # 撈取資料，並按開始時間排序
     sessions = await collection.find().sort("startTime", -1).to_list(50)
-    
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "sessions": sessions
     })
 
+# --- 新增：專門用來「播放/下載」影片的網址 ---
+@app.get("/video/{file_id}")
+async def stream_video(file_id: str):
+    """
+    從 MongoDB GridFS 讀取影片並串流給瀏覽器
+    """
+    try:
+        # 嘗試從 GridFS 開啟檔案
+        grid_out = await fs.open_download_stream(ObjectId(file_id))
+        
+        # 回傳串流回應 (這樣瀏覽器可以直接播，不用等下載完)
+        return StreamingResponse(
+            content=grid_out, 
+            media_type="video/mp4"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Video not found")
+
 @app.post("/upload")
 async def upload_session(
-    # ⚠️ 這裡的參數名稱已經改成和你前端完全一致
     sessionId: str = Form(...),
     startTime: str = Form(...),
     emotionValue: int = Form(...),
     duration: float = Form(0),
-    latitude: Optional[str] = Form(None), # 接收字串較為彈性
+    latitude: Optional[str] = Form(None),
     longitude: Optional[str] = Form(None),
     file: UploadFile = File(...)
 ):
     """
-    接收 App 上傳的資料
+    上傳：將影片直接寫入 MongoDB GridFS
     """
-    # 1. 儲存影片
-    # 為了避免檔名重複，我們用 sessionId 來重新命名
-    filename = f"{sessionId}.mp4"
-    file_location = f"uploads/{filename}"
+    # 1. 將影片檔案串流寫入 MongoDB
+    # upload_from_stream 會回傳一個 file_id，這是影片在資料庫裡的唯一 ID
+    file_id = await fs.upload_from_stream(
+        filename=f"{sessionId}.mp4",
+        source=file.file,
+        metadata={"contentType": "video/mp4"}
+    )
     
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # 2. 準備寫入 MongoDB 的資料
+    # 2. 準備 metadata
     data = {
         "sessionId": sessionId,
         "startTime": startTime,
-        "emotionValue": emotionValue, # 0-5 的數字
+        "emotionValue": emotionValue,
         "duration": duration,
         "gps": {
             "latitude": latitude, 
             "longitude": longitude
         },
-        "videoUrl": f"/uploads/{filename}", # 給網頁用的連結
+        # ⚠️ 這裡很重要：我們存的是專屬的 API 連結，而不是靜態檔案路徑
+        "videoUrl": f"/video/{file_id}", 
+        "gridfs_id": str(file_id), # 備份存一下 ID
         "uploadedAt": datetime.now()
     }
     
     # 3. 寫入資料庫
     await collection.insert_one(data)
     
-    return {"status": "success", "message": "Uploaded successfully"}
+    return {"status": "success", "message": "Uploaded to MongoDB GridFS"}

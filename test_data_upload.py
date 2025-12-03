@@ -15,8 +15,8 @@ if not os.path.exists(video_path):
 
 # 3. 準備假資料 (Metadata)
 payload = {
-    "sessionId": "real_video_test_002",    # 改個 ID 區別一下
-    "startTime": "2025-12-03T12:00:00",
+    "sessionId": "real_video_test_003",    # 改個 ID 區別一下
+    "startTime": "2025-12-03T16:00:00",
     "emotionValue": 5,
     "duration": 20.0,
     "latitude": "25.0330",

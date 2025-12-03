@@ -1,29 +1,75 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/e7FBMwSa)
-[![Open in Visual Studio Code](https://classroom.github.com/assets/open-in-vscode-2e0aaae1b6195c2367325f4f02e2d04e9abb55f0b24a779b69b11b9e10269abc.svg)](https://classroom.github.com/online_ide?assignment_repo_id=21916212&assignment_repo_type=AssignmentRepo)
-# Deploy FastAPI on Render
+# 📱 EmoGo Backend
 
-Use this repo as a template to deploy a Python [FastAPI](https://fastapi.tiangolo.com) service on Render.
+This is the backend service for the **EmoGo** mobile application, built with **FastAPI** and **MongoDB**. It handles data collection (videos recording, emotion collection, GPS coordinates) and provides a dashboard for viewing and downloading the collected sessions.
 
-See https://render.com/docs/deploy-fastapi or follow the steps below:
+## 🔗 Demo / Data Dashboard
+**[Required]** Access the data-exporting page here (using mock data):
+👉 **[EmoGo Backend Dashboard](https://emogo-backend-bearbearcookies.onrender.com)**
 
-## Manual Steps
+> **Note for TAs & Graders:**
+> This service is deployed on **Render (Free Tier)**.
+> * **Persistent Data:** All metadata (Sentiment, GPS, Timestamps) is stored in **MongoDB Atlas** and will **always** be visible.
+> * **Ephemeral Data:** Video files are stored on the server's ephemeral filesystem. They **may be deleted** if the server spins down or restarts due to inactivity.
+> * If video links return `404 Not Found`, it is due to this Render limitation. You can view the persistent GPS/Sentiment data on the dashboard, or run the provided `test_data_upload.py` script locally to re-upload fresh video content.
 
-1. You may use this repository directly or [create your own repository from this template](https://github.com/render-examples/fastapi/generate) if you'd like to customize the code.
-2. Create a new Web Service on Render.
-3. Specify the URL to your new repository or this repository.
-4. Render will automatically detect that you are deploying a Python service and use `pip` to download the dependencies.
-5. Specify the following as the Start Command.
+---
 
-    ```shell
-    uvicorn main:app --host 0.0.0.0 --port $PORT
-    ```
+## 🚀 Features
 
-6. Click Create Web Service.
+1.  **Data Collection API**: Receives Vlogs (MP4), Emotion scores, and GPS coordinates from the EmoGo Frontend.
+2.  **Dashboard UI**: A server-side rendered HTML page (Jinja2) to visualize and export data.
+3.  **Cloud Database**: Connects to MongoDB Atlas for persistent storage of session metadata.
 
-Or simply click:
+---
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/render-examples/fastapi)
+## 🛠️ Tech Stack
 
-## Thanks
+* **Language**: Python 3.9+
+* **Framework**: FastAPI
+* **Database**: MongoDB (via `motor` async driver)
+* **Deployment**: Render Web Service
 
-Thanks to [Harish](https://harishgarg.com) for the [inspiration to create a FastAPI quickstart for Render](https://twitter.com/harishkgarg/status/1435084018677010434) and for some sample code!
+---
+
+## 📂 Project Structure
+
+```text
+.
+├── main.py                # Application entry point and API logic
+├── requirements.txt       # Python dependencies
+├── render.yaml            # Render deployment configuration
+├── test_data_upload.py    # Script to upload fake/test data
+├── templates/
+│   └── index.html         # Dashboard HTML template
+└── uploads/               # Directory for storing temporary video files
+```
+
+## 🔌 API Endpoints
+
+### 1. Dashboard
+- **Endpoint:** `GET /`
+- **Description:** Returns an HTML page listing all recorded sessions with download links.
+
+### 2. Upload Session
+- **Endpoint:** `POST /upload`
+- **Content-Type:** `multipart/form-data`
+- **Description:** Accepts video files and metadata from the frontend.
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `sessionId` | String | Unique UUID for the session |
+| `startTime` | String | ISO Timestamp |
+| `emotionValue` | Int | User's emotion rating (0-5) |
+| `duration` | Float | Duration of the recording in seconds |
+| `latitude` | String | GPS Latitude (Optional) |
+| `longitude` | String | GPS Longitude (Optional) |
+| `file` | File | The video file (MP4) |
+
+---
+
+## 📱 Frontend Integration (Optional Goal)
+
+The EmoGo Frontend (React Native/Expo) has been updated to "close the loop".
+
+* **Automatic Upload**: When a user saves a session in the app, it automatically triggers a background upload to this backend.
+* **Synchronization**: The app sends the recorded video along with the selected emotion and current location coordinates.
